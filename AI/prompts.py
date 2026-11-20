@@ -3,6 +3,17 @@
 # Để trống thì bot chỉ khuyên liên hệ người thân hoặc chuyên gia, không đưa thông tin liên hệ cụ thể.
 CRISIS_CONTACT = ""
 
+# Câu trả lời soạn sẵn, KHÔNG qua LLM.
+# FALLBACK_REPLY: dùng khi LLM trả rỗng (thường do bộ lọc an toàn chặn, hay gặp với tin nhắn về tự hại),
+# nên phải luôn an toàn cho người đang khủng hoảng. Nhờ chuyên gia của team duyệt nội dung này.
+FALLBACK_REPLY = (
+    "Mình chưa thể trả lời câu này lúc này. Nếu bạn đang cảm thấy quá sức hoặc nghĩ đến việc làm hại bản thân, "
+    "hãy liên hệ ngay người thân bạn tin tưởng hoặc chuyên gia tâm lý."
+    + (f" {CRISIS_CONTACT}" if CRISIS_CONTACT else "")
+)
+# LLM_DOWN_REPLY: dùng khi không kết nối được LLM.
+LLM_DOWN_REPLY = "Hệ thống đang bận hoặc gặp sự cố, bạn vui lòng thử lại sau ít phút."
+
 _crisis_info = (
     f"và cung cấp đúng thông tin liên hệ sau: {CRISIS_CONTACT}"
     if CRISIS_CONTACT
@@ -26,6 +37,8 @@ Quy tắc về nội dung:
 - Gợi ý thang đo: nếu chưa rõ nhu cầu, hỏi lại người dùng (họ quan tâm vấn đề gì, dành cho ai) rồi mới gợi ý.
   Chỉ gợi ý các thang có trong tài liệu.
 - Giải thích dễ hiểu, ngắn gọn, giọng nhẹ nhàng, không phán xét.
+- Người dùng không gửi và không nhìn thấy phần "Tài liệu". Không cảm ơn họ vì đã cung cấp tài liệu,
+  không nói "tài liệu bạn gửi".
 
 Quy tắc về an toàn:
 - Không chẩn đoán và không kê đơn. Nhắc rõ kết quả thang đo chỉ mang tính tham khảo, không thay thế
@@ -46,8 +59,10 @@ def format_result(result):
     if not result:
         return ""
     lines = [f"Thang đo: {result['scale']}"]
-    if result.get("score") is not None:
-        lines.append(f"Điểm: {result['score']}")
+    score = result.get("score")
+    if score is not None:
+        # Điểm nhận về dạng số thực (12.0). Bỏ ".0" để bot không ghi "12.0 điểm".
+        lines.append(f"Điểm: {int(score) if float(score).is_integer() else score}")
     if result.get("level"):
         lines.append(f"Mức độ: {result['level']}")
     if result.get("report"):
@@ -57,7 +72,9 @@ def format_result(result):
 
 def build_user_message(question, chunks, result=None):
     """Tin nhắn gửi LLM = tài liệu tìm được + (kết quả của người dùng) + câu hỏi."""
-    parts = [f"Tài liệu:\n{build_context(chunks)}"]
+    # LƯU Ý: phần tài liệu nằm trong tin nhắn "user" nên LLM dễ tưởng người dùng gửi nó
+    # (vd "cảm ơn bạn đã cung cấp tài liệu"). Ghi rõ đây là tài liệu của hệ thống.
+    parts = [f"Tài liệu (do hệ thống tự tìm, người dùng KHÔNG gửi và không nhìn thấy phần này):\n{build_context(chunks)}"]
     if result:
         parts.append(f"Kết quả của người dùng:\n{format_result(result)}")
     parts.append(f"Câu hỏi: {question}")
