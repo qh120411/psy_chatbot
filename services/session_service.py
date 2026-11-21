@@ -2,26 +2,25 @@ MAX_TURNS = 5  # chỉ nhớ 5 lượt hỏi-đáp gần nhất để prompt kh�
 
 # LƯU Ý: lưu trong RAM của tiến trình. Tắt server hoặc reload là mất hết lịch sử.
 # Chạy nhiều worker thì mỗi worker có lịch sử riêng. Đủ dùng khi học và thử nghiệm.
-# Dữ liệu này gồm cả kết quả thang đo của người dùng, không ghi ra log hay file.
-_sessions = {}   # session_id -> list message
-_results = {}    # session_id -> kết quả thang đo gần nhất web gửi lên
+# Kết quả thang đo KHÔNG được lưu ở đây: backend web gửi lại ở mỗi request khi người dùng đang chia sẻ.
+#
+# Mỗi lượt có cờ "shared" = lượt đó có kèm kết quả thang đo hay không.
+# Khi người dùng ngừng chia sẻ (request không có result), các lượt "shared" bị ẩn khỏi lịch sử,
+# vì câu trả lời trong đó có nhắc điểm số. Nhờ vậy bot không còn nhắc lại kết quả cũ.
+_conversations = {}   # conversation_id -> list {"question", "answer", "shared"}
 
 
-def get_history(session_id):
-    return _sessions.get(session_id, [])
+def get_history(conversation_id, include_shared):
+    messages = []
+    for turn in _conversations.get(conversation_id, []):
+        if turn["shared"] and not include_shared:
+            continue
+        messages.append({"role": "user", "content": turn["question"]})
+        messages.append({"role": "assistant", "content": turn["answer"]})
+    return messages
 
 
-def add_turn(session_id, question, answer):
-    history = _sessions.setdefault(session_id, [])
-    history.append({"role": "user", "content": question})
-    history.append({"role": "assistant", "content": answer})
-    # mỗi lượt gồm 2 message nên giữ MAX_TURNS * 2
-    _sessions[session_id] = history[-MAX_TURNS * 2:]
-
-
-def get_result(session_id):
-    return _results.get(session_id)
-
-
-def set_result(session_id, result):
-    _results[session_id] = result
+def add_turn(conversation_id, question, answer, shared):
+    turns = _conversations.setdefault(conversation_id, [])
+    turns.append({"question": question, "answer": answer, "shared": shared})
+    _conversations[conversation_id] = turns[-MAX_TURNS:]

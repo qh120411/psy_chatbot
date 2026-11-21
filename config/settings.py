@@ -15,7 +15,7 @@ def _require(name):
     Vì vậy không để giá trị mặc định cho biến này."""
     value = os.getenv(name, "").strip()
     if not value:
-        raise RuntimeError(f"Thiếu biến {name} trong file .env (xem mẫu ở .env.example)")
+        raise RuntimeError(f"Thiếu biến {name} trong file .env")
     return value
 
 
@@ -23,14 +23,13 @@ class Config:
     LLM_BASE_URL: str = _require("LLM_BASE_URL")
     LLM_MODEL: str = _require("LLM_MODEL")
 
+    # API key của nhà cung cấp LLM (OpenAI...). KHÔNG bắt buộc: gọi qua 9router không cần key thì để trống.
+    # Đây KHÁC với API_KEY bên dưới (khóa giữa backend web và chatbot).
+    LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
+
+    # Khóa bí mật dùng chung giữa backend web và chatbot. Backend web gửi trong header X-API-Key.
+    # Chỉ có 1 khóa cho cả hệ thống (không phải mỗi người dùng một khóa), không đưa xuống trình duyệt.
+    API_KEY: str = _require("API_KEY")
+
     DATA_DIR: Path = BASE_DIR / "data"                # chứa file .docx
     VECTORSTORE_DIR: Path = BASE_DIR / "vectorstore"  # Chroma lưu index ở đây
-
-    # Domain web được phép gọi API (CORS), cách nhau bằng dấu phẩy.
-    # LƯU Ý: không phải danh sách ai được dùng bot. Nó chỉ bảo trình duyệt cho phép
-    # trang web ở domain đó gọi API này. Quên đổi thì web thật sẽ bị lỗi CORS.
-    ALLOWED_ORIGINS: list = [
-        o.strip()
-        for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-        if o.strip()
-    ]

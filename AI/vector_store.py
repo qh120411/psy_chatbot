@@ -35,7 +35,8 @@ def search(query_vector, k=3):
     col = get_collection()
     res = col.query(query_embeddings=[query_vector], n_results=k)
     # res là dict, mỗi key là list lồng list (do có thể hỏi nhiều câu cùng lúc)
+    # distance: khoảng cách cosine, càng NHỎ càng giống (0 = giống hệt)
     return [
-        {"text": doc, "source": meta["source"]}
-        for doc, meta in zip(res["documents"][0], res["metadatas"][0])
+        {"text": doc, "source": meta["source"], "distance": dist}
+        for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0])
     ]
